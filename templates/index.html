@@ -1,53 +1,4 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-
-    <title>Movie Recommender</title>
-
-    <style>
-      /* Optional: Add some custom styles */
-      body {
-        background-color: #f8f9fa; /* Light gray background */
-      }
-      .container {
-        max-width: 800px; /* Limit content width */
-        background-color: #ffffff; /* White background for content */
-        padding: 2rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Subtle shadow */
-        margin-top: 3rem; /* Add some space from the top */
-      }
-      .recommendation-list {
-          margin-top: 1.5rem;
-      }
-      h1 {
-          color: #343a40; /* Darker heading color */
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-        <h1 class="display-5 mb-4 text-center">🎬 Movie Recommender</h1>
-        <p class="text-center text-muted mb-4">Enter your favourite movie title to get similar recommendations based on genre.</p>
-
-        <form method="POST" action="/">
-            <div class="input-group mb-3">
-                <input type="text"
-                       class="form-control form-control-lg"
-                       name="movie_name"
-                       placeholder="Enter a movie title (e.g., Avatar)"
-                       value="{{ movie_input if movie_input else '' }}"
-                       aria-label="Movie Name"
-                       required>
-                <button class="btn btn-primary btn-lg" type="submit">Get Recommendations</button>
-            </div>
-        </form>
+            <!-- Small header search removed (use main search bar below) -->
 
         <!-- Display Error Messages -->
         {% if error_message %}
@@ -85,4 +36,579 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 
   </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineMatch - Movie Recommendations</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation">
+        <div class="bg-gradient"></div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <a href="/" class="logo-link">
+                <div class="logo">
+                    <i class="fas fa-film"></i>
+                    <span>CineMatch</span>
+                </div>
+            </a>
+            
+            <!-- Navigation with Filter Toggle -->
+            <nav class="main-nav">
+                <button class="nav-btn" onclick="toggleFilters()" id="filterToggleBtn">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Filters</span>
+                </button>
+                <a href="/" class="nav-btn">
+                    <i class="fas fa-fire"></i>
+                    <span>Trending</span>
+                </a>
+                <a href="/browse?sort_by=rating" class="nav-btn">
+                    <i class="fas fa-star"></i>
+                    <span>Top Rated</span>
+                </a>
+            </nav>
+            
+            <p class="tagline">Discover your next favorite movie with AI-powered recommendations</p>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <form action="/recommend" method="POST" class="search-form" id="searchForm">
+                <div class="search-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input 
+                        type="text" 
+                        name="movie_title" 
+                        id="movieSearch"
+                        class="search-input" 
+                        placeholder="Search for a movie... (e.g., The Matrix, Inception, Avatar)"
+                        value="{{ search_query if search_query else '' }}"
+                        autocomplete="off"
+                        required
+                    >
+                    <button type="submit" class="search-btn">
+                        <i class="fas fa-magic"></i>
+                        Get Recommendations
+                    </button>
+                </div>
+                <!-- Autocomplete Results -->
+                <div class="autocomplete-results" id="autocompleteResults"></div>
+            </form>
+        </section>
+
+        <!-- Error Message -->
+        {% if result and result.error %}
+        <div class="error-message">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>{{ result.error }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Advanced Filters Section - Hidden by default -->
+        <section class="filters-section hidden" id="filtersSection">
+            <h3 class="section-title">
+                <i class="fas fa-sliders-h"></i>
+                Browse Movies
+            </h3>
+            <form action="/browse" method="GET" class="filters-form" id="filtersForm">
+                <div class="filters-grid">
+                    <!-- Genre Selection -->
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-film"></i>
+                            Genre
+                        </label>
+                        <select name="genre" class="filter-select full-width">
+                            <option value="">All Genres</option>
+                            {% for genre in genres %}
+                            <option value="{{ genre }}" {% if filters and filters.genre == genre %}selected{% endif %}>{{ genre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Year Range Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-calendar-alt"></i>
+                            Year Range
+                        </label>
+                        <div class="filter-row">
+                            <select name="year_from" class="filter-select">
+                                <option value="">From</option>
+                                {% for year in range(2024, 1919, -1) %}
+                                <option value="{{ year }}" {% if filters and filters.year_from == year %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            <span class="filter-separator">to</span>
+                            <select name="year_to" class="filter-select">
+                                <option value="">To</option>
+                                {% for year in range(2024, 1919, -1) %}
+                                <option value="{{ year }}" {% if filters and filters.year_to == year %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Rating Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-star"></i>
+                            Minimum Rating
+                        </label>
+                        <div class="rating-filter">
+                            <input type="range" name="min_rating" id="minRating" class="rating-slider" 
+                                   min="0" max="10" step="0.5" 
+                                   value="{{ filters.min_rating if filters and filters.min_rating else 0 }}">
+                            <span class="rating-display" id="ratingDisplay">{{ filters.min_rating if filters and filters.min_rating else '0' }}+</span>
+                        </div>
+                    </div>
+
+                    <!-- Runtime Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-clock"></i>
+                            Runtime
+                        </label>
+                        <select name="runtime" class="filter-select full-width">
+                            <option value="">Any Duration</option>
+                            <option value="short" {% if filters and filters.runtime == 'short' %}selected{% endif %}>Under 90 min</option>
+                            <option value="medium" {% if filters and filters.runtime == 'medium' %}selected{% endif %}>90 - 120 min</option>
+                            <option value="long" {% if filters and filters.runtime == 'long' %}selected{% endif %}>120 - 180 min</option>
+                            <option value="epic" {% if filters and filters.runtime == 'epic' %}selected{% endif %}>Over 180 min</option>
+                        </select>
+                    </div>
+
+                    <!-- Sort By Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">
+                            <i class="fas fa-sort"></i>
+                            Sort By
+                        </label>
+                        <select name="sort_by" class="filter-select full-width">
+                            <option value="popularity" {% if filters and filters.sort_by == 'popularity' %}selected{% endif %}>Most Popular</option>
+                            <option value="rating" {% if filters and filters.sort_by == 'rating' %}selected{% endif %}>Highest Rated</option>
+                            <option value="year_desc" {% if filters and filters.sort_by == 'year_desc' %}selected{% endif %}>Newest First</option>
+                            <option value="year_asc" {% if filters and filters.sort_by == 'year_asc' %}selected{% endif %}>Oldest First</option>
+                            <option value="title" {% if filters and filters.sort_by == 'title' %}selected{% endif %}>A-Z</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-buttons">
+                    <button type="submit" class="filter-apply-btn">
+                        <i class="fas fa-search"></i>
+                        Apply Filters
+                    </button>
+                    <button type="button" class="filter-reset-btn" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i>
+                        Reset
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Filtered Results Section -->
+        {% if filtered_movies %}
+        <section class="filtered-results-section">
+            <h3 class="section-title">
+                <i class="fas fa-list"></i>
+                Browse Results
+                <span class="recommendation-count">{{ filtered_movies|length }} movies found</span>
+            </h3>
+            <div class="movies-grid">
+                {% for movie in filtered_movies %}
+                <div class="movie-card" data-movie-id="{{ movie.id }}" onclick="searchMovie('{{ movie.clean_title }}')">
+                    <div class="movie-poster clickable">
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.clean_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/1a1a2e/6366f1?text=No+Poster'">
+                        <div class="movie-overlay">
+                            <div class="overlay-content">
+                                <i class="fas fa-search"></i>
+                                <span>Find Similar</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="movie-info">
+                        <div class="movie-rating">
+                            <i class="fas fa-star"></i>
+                            <span>{{ "%.1f"|format(movie.rating) }}</span>
+                        </div>
+                        <h4 class="movie-title">{{ movie.clean_title }}</h4>
+                        {% if movie.year %}
+                        <span class="movie-year">{{ movie.year }}</span>
+                        {% endif %}
+                        <div class="movie-genres">
+                            {% for genre in movie.genres[:2] %}
+                            <span class="genre-mini">{{ genre }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Recommendations Section -->
+        {% if result and result.recommendations %}
+        <section class="recommendations-section">
+            <!-- Selected Movie Card - Improved Design -->
+            <div class="selected-movie-card">
+                <div class="selected-movie-poster">
+                    <img src="{{ result.selected_movie.poster_url }}" alt="{{ result.selected_movie.clean_title }}" onerror="this.src='https://via.placeholder.com/300x450/1a1a2e/6366f1?text=No+Poster'">
+                    <div class="poster-glow"></div>
+                </div>
+                <div class="selected-movie-details">
+                    <div class="selected-badge">
+                        <i class="fas fa-check-circle"></i>
+                        Your Selection
+                    </div>
+                    <h2 class="selected-movie-title">{{ result.selected_movie.clean_title }}</h2>
+                    {% if result.selected_movie.year %}
+                    <span class="selected-movie-year">{{ result.selected_movie.year|int }}</span>
+                    {% endif %}
+                    
+                    <div class="selected-movie-rating">
+                        <div class="rating-stars">
+                            <i class="fas fa-star"></i>
+                            <span class="rating-value">{{ "%.1f"|format(result.selected_movie.rating) }}</span>
+                        </div>
+                        <span class="rating-count">{{ "{:,}".format(result.selected_movie.vote_count) }} votes</span>
+                    </div>
+                    
+                    <div class="selected-movie-genres">
+                        {% for genre in result.selected_movie.genres %}
+                        <span class="genre-tag">{{ genre }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <p class="selected-movie-overview">{{ result.selected_movie.overview }}</p>
+                </div>
+            </div>
+
+            <h3 class="section-title">
+                <i class="fas fa-sparkles"></i>
+                Movies You'll Love
+                <span class="recommendation-count">{{ result.recommendations|length }} similar movies found</span>
+            </h3>
+
+            <div class="movies-grid">
+                {% for movie in result.recommendations %}
+                <div class="movie-card" data-movie-id="{{ movie.id }}">
+                    <div class="movie-poster">
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.clean_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/1a1a2e/6366f1?text=No+Poster'">
+                        <div class="movie-rank">#{{ movie.rank }}</div>
+                        <div class="similarity-badge">
+                            {{ movie.similarity_score }}% match
+                        </div>
+                        <div class="movie-overlay">
+                            <button class="play-btn" onclick="searchMovie('{{ movie.clean_title }}')">
+                                <i class="fas fa-random"></i>
+                                Find Similar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="movie-info">
+                        <div class="movie-rating">
+                            <i class="fas fa-star"></i>
+                            <span>{{ "%.1f"|format(movie.rating) }}</span>
+                        </div>
+                        <h4 class="movie-title">{{ movie.clean_title }}</h4>
+                        {% if movie.year %}
+                        <span class="movie-year">{{ movie.year }}</span>
+                        {% endif %}
+                        <div class="movie-genres">
+                            {% for genre in movie.genres[:2] %}
+                            <span class="genre-mini">{{ genre }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Popular Movies Section (shown when no search) -->
+        {% if not result and popular_movies %}
+        <section class="popular-section">
+            <h3 class="section-title">
+                <i class="fas fa-fire"></i>
+                Trending Movies
+            </h3>
+            <p class="section-subtitle">Click on any movie to discover similar recommendations</p>
+
+            <div class="movies-grid">
+                {% for movie in popular_movies %}
+                <div class="movie-card" data-movie-id="{{ movie.id }}" onclick="searchMovie('{{ movie.clean_title }}')">
+                    <div class="movie-poster clickable">
+                        <img src="{{ movie.poster_url }}" alt="{{ movie.clean_title }}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x450/1a1a2e/6366f1?text=No+Poster'">
+                        <div class="movie-overlay">
+                            <div class="overlay-content">
+                                <i class="fas fa-search"></i>
+                                <span>Find Similar</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="movie-info">
+                        <div class="movie-rating">
+                            <i class="fas fa-star"></i>
+                            <span>{{ "%.1f"|format(movie.rating) }}</span>
+                        </div>
+                        <h4 class="movie-title">{{ movie.clean_title }}</h4>
+                        {% if movie.year %}
+                        <span class="movie-year">{{ movie.year }}</span>
+                        {% endif %}
+                        <div class="movie-genres">
+                            {% for genre in movie.genres[:2] %}
+                            <span class="genre-mini">{{ genre }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- How It Works Section -->
+        <section class="how-it-works">
+            <h3 class="section-title">
+                <i class="fas fa-lightbulb"></i>
+                How It Works
+            </h3>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h4>Search</h4>
+                    <p>Enter any movie you love</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h4>Analyze</h4>
+                    <p>Our AI analyzes genres & features</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-film"></i>
+                    </div>
+                    <h4>Discover</h4>
+                    <p>Get personalized recommendations</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-film"></i>
+                    <span>CineMatch</span>
+                </div>
+                <p class="footer-text">
+                    Built with <i class="fas fa-heart"></i> using Flask, Scikit-learn & TF-IDF
+                </p>
+                <p class="tech-stack">Content-based Recommendation Engine • 60,000+ Movies</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Toggle Filters visibility
+        function toggleFilters() {
+            const filtersSection = document.getElementById('filtersSection');
+            const toggleBtn = document.getElementById('filterToggleBtn');
+            
+            filtersSection.classList.toggle('hidden');
+            toggleBtn.classList.toggle('active');
+            
+            // Smooth scroll to filters when opening
+            if (!filtersSection.classList.contains('hidden')) {
+                filtersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Show filters if there are filtered results
+        {% if filtered_movies %}
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('filtersSection').classList.remove('hidden');
+            document.getElementById('filterToggleBtn').classList.add('active');
+        });
+        {% endif %}
+
+        // Rating slider update
+        const ratingSlider = document.getElementById('minRating');
+        const ratingDisplay = document.getElementById('ratingDisplay');
+        
+        if (ratingSlider) {
+            ratingSlider.addEventListener('input', function() {
+                ratingDisplay.textContent = this.value + '+';
+            });
+        }
+
+        // Filter functions
+        function filterByGenre(genre) {
+            const form = document.getElementById('filtersForm');
+            const genreSelect = form.querySelector('select[name="genre"]');
+            if (genreSelect) {
+                genreSelect.value = genre;
+                form.submit();
+            }
+        }
+
+        function resetFilters() {
+            window.location.href = '/';
+        }
+
+        // Autocomplete functionality
+        const searchInput = document.getElementById('movieSearch');
+        const autocompleteResults = document.getElementById('autocompleteResults');
+        let debounceTimer;
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const query = this.value.trim();
+            
+            if (query.length < 2) {
+                autocompleteResults.classList.remove('active');
+                return;
+            }
+
+            debounceTimer = setTimeout(() => {
+                fetch(`/api/search?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(movies => {
+                        if (movies.length > 0) {
+                            autocompleteResults.innerHTML = movies.map(movie => `
+                                <div class="autocomplete-item" onclick="selectMovie('${movie.title.replace(/'/g, "\\'")}')">
+                                    <div class="autocomplete-icon">
+                                        <i class="fas fa-film"></i>
+                                    </div>
+                                    <div class="autocomplete-movie-info">
+                                        <span class="autocomplete-title">${movie.clean_title}</span>
+                                        <span class="autocomplete-meta">
+                                            ${movie.year ? '<i class="fas fa-calendar"></i> ' + movie.year : ''} 
+                                            ${movie.rating ? '<i class="fas fa-star"></i> ' + movie.rating.toFixed(1) : ''}
+                                            <span class="autocomplete-genres">${movie.genres.slice(0, 2).join(' • ')}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            `).join('');
+                            autocompleteResults.classList.add('active');
+                        } else {
+                            autocompleteResults.classList.remove('active');
+                        }
+                    })
+                    .catch(err => console.error('Search error:', err));
+            }, 300);
+        });
+
+        function selectMovie(title) {
+            searchInput.value = title;
+            autocompleteResults.classList.remove('active');
+            document.getElementById('searchForm').submit();
+        }
+
+        function searchMovie(title) {
+            searchInput.value = title;
+            document.getElementById('searchForm').submit();
+        }
+
+        function searchByGenre(genre) {
+            // Search for a random popular movie in that genre
+            fetch(`/api/genres/${encodeURIComponent(genre)}`)
+                .then(response => response.json())
+                .then(movies => {
+                    if (movies.length > 0) {
+                        const randomMovie = movies[Math.floor(Math.random() * Math.min(movies.length, 5))];
+                        searchMovie(randomMovie.clean_title);
+                    }
+                })
+                .catch(err => console.error('Genre search error:', err));
+        }
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !autocompleteResults.contains(e.target)) {
+                autocompleteResults.classList.remove('active');
+            }
+        });
+
+        // Keyboard navigation for autocomplete
+        searchInput.addEventListener('keydown', function(e) {
+            const items = autocompleteResults.querySelectorAll('.autocomplete-item');
+            const activeItem = autocompleteResults.querySelector('.autocomplete-item.active');
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!activeItem && items.length > 0) {
+                    items[0].classList.add('active');
+                } else if (activeItem && activeItem.nextElementSibling) {
+                    activeItem.classList.remove('active');
+                    activeItem.nextElementSibling.classList.add('active');
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (activeItem && activeItem.previousElementSibling) {
+                    activeItem.classList.remove('active');
+                    activeItem.previousElementSibling.classList.add('active');
+                }
+            } else if (e.key === 'Enter' && activeItem) {
+                e.preventDefault();
+                activeItem.click();
+            }
+        });
+
+        // Intersection Observer for card animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.movie-card, .feature-card').forEach(card => {
+            observer.observe(card);
+        });
+
+        // Add smooth scroll for better UX
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
 </html>
