@@ -1,6 +1,8 @@
- # CineMatch — Movie Recommender Web App
- 
- A compact, local-first Flask web application that provides content-based movie recommendations using a processed TMDB dataset and simple TF-IDF on genres. The UI includes a searchable movie selector, poster images (fetched from OMDb as a fallback), filters, and a responsive, mobile-first design.
+# CineMatch — Movie Recommender Web App
+
+🚀 **Live App:** [https://cinematch-kohl.vercel.app/](https://cinematch-kohl.vercel.app/)
+
+A modern full-stack web application providing AI-powered content-based movie recommendations. Features a sleek, responsive React frontend (Vite) with a premium glassmorphism UI and a robust Flask RESTful API backend utilizing TF-IDF on genres. The UI includes autocomplete search, advanced filters, and personalized movie suggestions.
  
  ## What this repo contains
  - `app.py` — Flask application and recommendation engine
