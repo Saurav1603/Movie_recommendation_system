@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -11,6 +12,7 @@ from functools import lru_cache
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app)
 
 # ============================================================================
 # OMDb API Configuration (for movie posters)
@@ -49,7 +51,7 @@ class MovieRecommender:
             for file_path in files_to_try:
                 if os.path.exists(file_path):
                     self.df = pd.read_csv(file_path)
-                    print(f"📂 Loading from: {file_path}")
+                    print(f"Loading from: {file_path}")
                     loaded = True
                     break
             
@@ -83,7 +85,7 @@ class MovieRecommender:
             self.tfidf_matrix = self.tfidf_vectorizer.fit_transform(self.df['genres_processed'])
             
             self.is_loaded = True
-            print(f"✓ Loaded {len(self.df)} movies successfully")
+            print(f"Loaded {len(self.df)} movies successfully")
             
         except FileNotFoundError as e:
             self.error_message = str(e)
@@ -439,70 +441,25 @@ recommender = MovieRecommender()
 # Flask Routes
 # ============================================================================
 
-@app.route('/')
-def index():
-    """Main page"""
-    popular_movies = recommender.get_popular_movies()
-    top_rated = recommender.get_top_rated_movies(6)
+@app.route('/api/popular')
+def api_popular():
+    limit = request.args.get('limit', default=20, type=int)
+    movies = recommender.get_popular_movies(limit)
+    return jsonify(movies)
+
+@app.route('/api/top-rated')
+def api_top_rated():
+    limit = request.args.get('limit', default=12, type=int)
+    movies = recommender.get_top_rated_movies(limit)
+    return jsonify(movies)
+
+@app.route('/api/genres')
+def api_all_genres():
     genres = recommender.get_all_genres()
-    
-    # Empty filters for initial page load
-    filters = {
-        'year_from': None,
-        'year_to': None,
-        'min_rating': 0,
-        'runtime': '',
-        'sort_by': 'popularity',
-        'genre': ''
-    }
-    
-    return render_template('index.html', 
-                         popular_movies=popular_movies,
-                         top_rated=top_rated,
-                         genres=genres,
-                         filters=filters,
-                         is_loaded=recommender.is_loaded)
+    return jsonify(genres)
 
-
-@app.route('/recommend', methods=['POST'])
-def recommend():
-    """Get recommendations for a movie"""
-    movie_id = request.form.get('movie_id')
-    movie_title = request.form.get('movie_title', '').strip()
-    
-    if movie_id:
-        result = recommender.get_recommendations(movie_id=int(movie_id))
-    elif movie_title:
-        result = recommender.get_recommendations(movie_title=movie_title)
-    else:
-        result = {'error': 'Please enter a movie title', 'recommendations': []}
-    
-    popular_movies = recommender.get_popular_movies()
-    genres = recommender.get_all_genres()
-    
-    # Empty filters
-    filters = {
-        'year_from': None,
-        'year_to': None,
-        'min_rating': 0,
-        'runtime': '',
-        'sort_by': 'popularity',
-        'genre': ''
-    }
-    
-    return render_template('index.html',
-                         result=result,
-                         popular_movies=popular_movies,
-                         genres=genres,
-                         filters=filters,
-                         search_query=movie_title,
-                         is_loaded=recommender.is_loaded)
-
-
-@app.route('/browse')
-def browse():
-    """Browse movies with advanced filters"""
-    # Get filter parameters
+@app.route('/api/browse')
+def api_browse():
     year_from = request.args.get('year_from', type=int)
     year_to = request.args.get('year_to', type=int)
     min_rating = request.args.get('min_rating', type=float, default=0)
@@ -510,17 +467,6 @@ def browse():
     sort_by = request.args.get('sort_by', 'popularity')
     genre = request.args.get('genre', '')
     
-    # Store filters for template
-    filters = {
-        'year_from': year_from,
-        'year_to': year_to,
-        'min_rating': min_rating,
-        'runtime': runtime,
-        'sort_by': sort_by,
-        'genre': genre
-    }
-    
-    # Get filtered movies
     filtered_movies = recommender.get_filtered_movies(
         year_from=year_from,
         year_to=year_to,
@@ -530,17 +476,7 @@ def browse():
         genre=genre,
         limit=40
     )
-    
-    popular_movies = recommender.get_popular_movies()
-    genres = recommender.get_all_genres()
-    
-    return render_template('index.html',
-                         popular_movies=popular_movies,
-                         genres=genres,
-                         filtered_movies=filtered_movies,
-                         filters=filters,
-                         selected_genre=genre,
-                         is_loaded=recommender.is_loaded)
+    return jsonify(filtered_movies)
 
 
 @app.route('/api/search')

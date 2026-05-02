@@ -18,7 +18,8 @@ Thumbs.db
 
 # Data files (do not push large datasets)
 *.csv
-!requirements.txt
+!backend/tmdb_movies_processed.csv
+!backend/requirements.txt
 
 # Logs
 *.log
